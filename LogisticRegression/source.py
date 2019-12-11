@@ -72,6 +72,39 @@ class LR_Loss(nn.Module):
 #     return logistic_model
 
 
+# def train(xNeg, xPos):
+#     yNeg = torch.zeros(num, 1)
+#     yPos = torch.ones(num, 1)
+#     x = torch.cat((xNeg, xPos), 0).type(torch.FloatTensor)
+#     y = torch.cat((yNeg, yPos), 0).type(torch.FloatTensor)
+#
+#     lr = 1e-4
+#     lr_loss = LR_Loss()
+#     w = Variable(torch.zeros(xLen+1, 1).type(torch.FloatTensor), requires_grad=True)
+#     loss_all = []
+#     accuracy = []
+#     for epoch in range(100000):
+#         y_pred = x.mm(w)
+#         loss = lr_loss.forward(y_pred, y)
+#         print_loss = loss.data.item()
+#         loss_all.append(print_loss)
+#         mask = y_pred.ge(0.5).float()
+#         correct = (mask == y).sum()
+#         acc = correct.item() / x.size(0)
+#         accuracy.append(acc)
+#
+#         loss.backward()
+#         w.data -= lr*w.grad.data
+#         w.grad.data.zero_()
+#         if (epoch + 1) % 1000 == 0:
+#                 print('*' * 10)
+#                 print('epoch {}'.format(epoch + 1))  # 训练轮数
+#                 print('loss is {:.4f}'.format(print_loss))  # 误差
+#                 print('acc is {:.4f}'.format(acc))  # 精度
+#
+#     return w
+
+
 def train(xNeg, xPos):
     yNeg = torch.zeros(num, 1)
     yPos = torch.ones(num, 1)
@@ -83,9 +116,11 @@ def train(xNeg, xPos):
     w = Variable(torch.zeros(xLen+1, 1).type(torch.FloatTensor), requires_grad=True)
     loss_all = []
     accuracy = []
+
     for epoch in range(100000):
-        y_pred = x.mm(w)
-        loss = lr_loss.forward(y_pred, y)
+        wx = x.mm(w)
+        y_pred = 1 / (1 + torch.exp(-wx))
+        loss = lr_loss.forward(wx, y)
         print_loss = loss.data.item()
         loss_all.append(print_loss)
         mask = y_pred.ge(0.5).float()
@@ -94,7 +129,14 @@ def train(xNeg, xPos):
         accuracy.append(acc)
 
         loss.backward()
-        w.data -= lr*w.grad.data
+        grad_w = torch.zeros(xLen+1, 1)
+        for i in range(xLen+1):
+            tmp = torch.exp(wx)
+            tmp = torch.div(tmp, tmp+1)
+            xtmp = x[:, i]
+            grad_w[i] = -torch.sum(xtmp.mul(y[:, 0])-xtmp.mul(tmp[:, 0]))
+
+        w.data -= lr*grad_w
         w.grad.data.zero_()
         if (epoch + 1) % 1000 == 0:
                 print('*' * 10)
@@ -103,6 +145,7 @@ def train(xNeg, xPos):
                 print('acc is {:.4f}'.format(acc))  # 精度
 
     return w
+
 
 # def sigmoid(x):
 #     ans = 1 / (1 + np.exp(-x))
