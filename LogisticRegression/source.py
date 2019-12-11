@@ -26,6 +26,7 @@ class LR_Loss(nn.Module):
         return loss
 
 
+# # 1.pytorch自带优化；
 # def train(xNeg, xPos):
 #     yNeg = torch.zeros(num, 1)
 #     yPos = torch.ones(num, 1)
@@ -72,6 +73,7 @@ class LR_Loss(nn.Module):
 #     return logistic_model
 
 
+# # 2.pytorch自动梯度下降；
 # def train(xNeg, xPos):
 #     yNeg = torch.zeros(num, 1)
 #     yPos = torch.ones(num, 1)
@@ -105,6 +107,7 @@ class LR_Loss(nn.Module):
 #     return w
 
 
+# 3.pytorch手动梯度下降
 def train(xNeg, xPos):
     yNeg = torch.zeros(num, 1)
     yPos = torch.ones(num, 1)
