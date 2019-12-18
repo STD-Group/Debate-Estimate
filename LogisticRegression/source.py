@@ -116,7 +116,7 @@ def train(xNeg, xPos):
 
     lr = 1e-4
     lr_loss = LR_Loss()
-    w = Variable(torch.zeros(xLen+1, 1).type(torch.FloatTensor), requires_grad=True)
+    w = Variable((torch.rand(xLen+1, 1)*10-5).type(torch.FloatTensor), requires_grad=True)
     loss_all = []
     accuracy = []
 
