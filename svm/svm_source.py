@@ -1,20 +1,17 @@
 import numpy as np
-import json
-import torch
 import scipy.io.wavfile
 from scipy.fftpack import dct
-from torch import nn
-from torch.autograd import Variable
+from sklearn.cluster import KMeans
 
 for i in range(0, 100):
     sample_rate, signal = scipy.io.wavfile.read("../../dataset/train/negative/" + str(i) + "/audio.wav")
     # signal = signal[0: int(6.5*sample_rate)]
     t = np.linspace(0, 30, num=len(signal))
 
-    pre_emphasis = 0.97
+    pre_emphasis = 0.97  # 0.95
     emphasized_signal = np.append(signal[0], signal[1:] - pre_emphasis*signal[:-1])
-    frame_size = 1
-    frame_stride = 1
+    frame_size = 0.04  # 0.02~0.04
+    frame_stride = 0.02
     frame_length, frame_step = frame_size*sample_rate, frame_stride*sample_rate
     signal_length = len(emphasized_signal)
     frame_length = int(round(frame_length))
@@ -22,7 +19,8 @@ for i in range(0, 100):
     pad_signal_length = num_frames * frame_step + frame_length
     z = np.zeros(int(pad_signal_length - signal_length))
     pad_signal = np.append(emphasized_signal, z)
-    indices = np.tile(np.arange(0, frame_length), (num_frames, 1)) + np.tile(np.arange(0, num_frames*frame_step, frame_step), (frame_length, 1)).T
+    indices = np.tile(np.arange(0, frame_length), (num_frames, 1)) + \
+              np.tile(np.arange(0, num_frames*frame_step, frame_step), (frame_length, 1)).T
     frames = pad_signal[indices.astype(np.int32, copy=False)]
     ham = np.hamming(frame_length)
     # plt.plot(ham)
@@ -65,8 +63,13 @@ for i in range(0, 100):
     mfcc *= lift
 
     mfcc -= (np.mean(mfcc, axis=0) + 1e-8)
-    mfcc = mfcc.reshape((mfcc.size, 1))
-    np.save("../../dataset/train/negative/" + str(i) + "/audio.npy", mfcc)
+
+    clf = KMeans(n_clusters=9)
+    mfccK = clf.fit(mfcc)
+    mfccK = mfccK.cluster_centers_
+    mfccK = mfccK.reshape((mfccK.size, 1), order='C')
+
+    np.save("../../dataset/train/negative/" + str(i) + "/audio.npy", mfccK)
 
 for i in range(0, 100):
     sample_rate, signal = scipy.io.wavfile.read("../../dataset/train/positive/" + str(i) + "/audio.wav")
@@ -127,5 +130,10 @@ for i in range(0, 100):
     mfcc *= lift
 
     mfcc -= (np.mean(mfcc, axis=0) + 1e-8)
-    mfcc = mfcc.reshape((mfcc.size, 1))
-    np.save("../../dataset/train/positive/" + str(i) + "/audio.npy", mfcc)
+
+    clf = KMeans(n_clusters=9)
+    mfccK = clf.fit(mfcc)
+    mfccK = mfccK.cluster_centers_
+    mfccK = mfccK.reshape((mfccK.size, 1), order='C')
+
+    np.save("../../dataset/train/positive/" + str(i) + "/audio.npy", mfccK)
