@@ -120,17 +120,37 @@ def train_GD(xNeg, xPos):
     yPos = torch.ones(num, 1)
     x = torch.cat((xNeg, xPos), 0).type(torch.FloatTensor)
     y = torch.cat((yNeg, yPos), 0).type(torch.FloatTensor)
+    maxX = torch.max(x, 1)
+    for i in range(x.size(1)):
+        x[:, i] = x[:, i].div(maxX[0])
 
+    numSig = 10
     lr = 1e-4
+    lrSig = 1e-6
     lr_loss = LR_Loss()
-    w = Variable((torch.rand(xLen+1, 1)*10-5).type(torch.FloatTensor), requires_grad=True)
+    w = Variable((torch.rand(numSig, 1)-0.5).type(torch.FloatTensor), requires_grad=True)
+    wSig = Variable((torch.rand(xLen + 1, numSig)-0.5).type(torch.FloatTensor), requires_grad=True)
+    # w = Variable((torch.rand(numSig, 1)/100).type(torch.FloatTensor), requires_grad=True)
+    # wSig = Variable((torch.rand(xLen + 1, numSig)/100).type(torch.FloatTensor), requires_grad=True)
+
     loss_all = []
     accuracy = []
 
+    grad_w = torch.zeros(numSig, 1)
+    grad_wSig = torch.zeros(xLen + 1, numSig)
+    y_predSig = torch.zeros(x.size(0), numSig)
+
+    lossH = 0
+
     for epoch in range(100000):
-        wx = x.mm(w)
+        wxSig = x.mm(wSig)
+        relu = nn.ReLU(inplace=True)
+        y_predSig = relu(wxSig)
+        wx = y_predSig.mm(w)
         y_pred = 1 / (1 + torch.exp(-wx))
+
         loss = lr_loss.forward(wx, y)
+
         print_loss = loss.data.item()
         loss_all.append(print_loss)
         mask = y_pred.ge(0.5).float()
@@ -138,22 +158,35 @@ def train_GD(xNeg, xPos):
         acc = correct.item() / x.size(0)
         accuracy.append(acc)
 
-        loss.backward()
-        grad_w = torch.zeros(xLen+1, 1)
-        grad_grad_w = torch.zeros(xLen + 1, 1)
-        for i in range(xLen+1):
-            w_x = torch.exp(wx)
-            tmp = torch.div(w_x, w_x+1)
-            xtmp = x[:, i]
-            xsqrt = xtmp.mul(xtmp)
-            tmp2 = torch.div(tmp, w_x+1)
-            grad_w[i] = -torch.sum(xtmp.mul(y[:, 0])-xtmp.mul(tmp[:, 0]))
-            grad_grad_w[i] = torch.sum(xsqrt.mul(tmp2[:, 0]))
+        tmp = torch.exp(wx)
+        tmp = torch.div(tmp, tmp + 1)
 
-        grad = torch.div(grad_w, grad_grad_w)
-        w.data -= lr*grad_w/grad
-        w.grad.data.zero_()
-        if (epoch + 1) % 1000 == 0:
+        for s in range(numSig):
+
+            xtmp = y_predSig[:, s]
+            grad_w[s] = -torch.sum(xtmp.mul(y[:, 0] - tmp[:, 0]))
+
+            wtmp = w[s]
+            grad_x = -wtmp*torch.sum(y[:, 0] - tmp[:, 0])
+
+            gtmp = torch.zeros(xLen + 1)
+            n = 0
+            for i in range(x.size(0)):
+                if wxSig[i, s] > 0:
+                    gtmp += x[i, :]
+                    n += 1
+
+            grad_wSig[:, s] = gtmp/n*grad_x
+
+        if lossH > loss.data:
+            w.data -= lr*grad_w*min((lossH-loss.data)*5000, 1)
+            wSig.data -= lrSig*grad_wSig*min((lossH-loss.data)*5000, 1)
+        else:
+            w.data -= lr * grad_w
+            wSig.data -= lrSig * grad_wSig
+        lossH = loss.data
+
+        if (epoch + 1) % 100 == 0:
                 print('*' * 10)
                 print('epoch {}'.format(epoch + 1))  # 训练轮数
                 print('loss is {:.4f}'.format(print_loss))  # 误差
@@ -228,42 +261,42 @@ def train_Newton(xNeg, xPos):
 # feat.npy文件读取，结果为长度13的浮点list
 num = 100
 
-# xLen = 13
-#
-# xNeg = torch.zeros((num, xLen+1))
-# for i in range(num):
-#     data = np.load("../../dataset/train/negative/" + str(i) + "/feat.npy")
-#     for j in range(xLen):
-#         xNeg[i][j] = data[j]
-#     xNeg[i][xLen] = 1
-#
-# xPos = torch.zeros((num, xLen+1))
-# for i in range(num):
-#     data = np.load("../../dataset/train/positive/" + str(i) + "/feat.npy")
-#     for j in range(xLen):
-#         xPos[i][j] = data[j]
-#     xPos[i][xLen] = 1
-#
-# train_torch(xNeg, xPos)
-
-xLen = 348
+xLen = 13
 
 xNeg = torch.zeros((num, xLen+1))
 for i in range(num):
-    data = np.load("../../dataset/train/negative/" + str(i) + "/audio.npy")
+    data = np.load("../../dataset/train/negative/" + str(i) + "/feat.npy")
     for j in range(xLen):
-        xNeg[i][j] = data[j, 0]
+        xNeg[i][j] = data[j]
     xNeg[i][xLen] = 1
 
 xPos = torch.zeros((num, xLen+1))
 for i in range(num):
-    data = np.load("../../dataset/train/positive/" + str(i) + "/audio.npy")
+    data = np.load("../../dataset/train/positive/" + str(i) + "/feat.npy")
     for j in range(xLen):
-        xPos[i][j] = data[j, 0]
+        xPos[i][j] = data[j]
     xPos[i][xLen] = 1
 
-train_torch(xNeg, xPos)
-
-
-for i in range(num):
-    data = np.load("../../dataset/test/" + str(i) + "/feat.npy")
+train_GD(xNeg, xPos)
+#
+# xLen = 348
+#
+# xNeg = torch.zeros((num, xLen+1))
+# for i in range(num):
+#     data = np.load("../../dataset/train/negative/" + str(i) + "/audio.npy")
+#     for j in range(xLen):
+#         xNeg[i][j] = data[j, 0]
+#     xNeg[i][xLen] = 1
+#
+# xPos = torch.zeros((num, xLen+1))
+# for i in range(num):
+#     data = np.load("../../dataset/train/positive/" + str(i) + "/audio.npy")
+#     for j in range(xLen):
+#         xPos[i][j] = data[j, 0]
+#     xPos[i][xLen] = 1
+#
+# train_torch(xNeg, xPos)
+#
+#
+# for i in range(num):
+#     data = np.load("../../dataset/test/" + str(i) + "/feat.npy")
