@@ -56,7 +56,7 @@ for i in range(0, 100):
     filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)
     filter_banks = 20 * np.log10(filter_banks)
     num_ceps = 12
-    mfcc = dct(filter_banks, type=2, axis=1, norm='ortho')[:, 1 : (num_ceps + 1)] # Keep 2-13
+    mfcc = dct(filter_banks, type=2, axis=1, norm='ortho')[:, 1: (num_ceps + 1)] # Keep 2-13
     (nframes, ncoeff) = mfcc.shape
     n = np.arange(ncoeff)
     lift = 1 + (num_ceps / 2) * np.sin(np.pi * n / num_ceps)
@@ -123,7 +123,7 @@ for i in range(0, 100):
     filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)
     filter_banks = 20 * np.log10(filter_banks)
     num_ceps = 12
-    mfcc = dct(filter_banks, type=2, axis=1, norm='ortho')[:, 1 : (num_ceps + 1)] # Keep 2-13
+    mfcc = dct(filter_banks, type=2, axis=1, norm='ortho')[:, 1 : (num_ceps + 1)]  # Keep 2-13
     (nframes, ncoeff) = mfcc.shape
     n = np.arange(ncoeff)
     lift = 1 + (num_ceps / 2) * np.sin(np.pi * n / num_ceps)
