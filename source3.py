@@ -10,21 +10,24 @@ from sklearn.model_selection import KFold
 class Model(nn.Module):
     def __init__(self):
         super(Model, self).__init__()
-        # layer = 10
-        # self.layer1 = torch.nn.Linear(xLen+1, layer)
-        # self.layer2 = torch.nn.Linear(layer, 1)
+        layer = 10
+        self.layer1 = torch.nn.Linear(xLen+1, layer)
+        self.layer2 = torch.nn.Linear(layer, 1)
         # self.sm = torch.nn.Sigmoid()
-        self.layer1 = torch.nn.RNNCell(xLen+1, 1, bias=False, nonlinearity='tanh')
+        # self.layer1 = torch.nn.Linear(xLen+1, 1, bias=False, nonlinearity='tanh')
         self.sm = torch.nn.Sigmoid()
+        self.relu = torch.nn.ReLU()
+        self.dropout = torch.nn.Dropout(0.5)
 
     def forward(self, x):
+        x = self.layer1(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        x = self.layer2(x)
+        x = self.sm(x)
+        # return x
         # x = self.layer1(x)
         # x = self.sm(x)
-        # x = self.layer2(x)
-        # x = self.sm(x)
-        # return x
-        x = self.layer1(x)
-        x = self.sm(x)
         return x
 
 
@@ -37,7 +40,7 @@ def train(x, y):
         model.cuda()
     loss_all = []
     accuracy = []
-    for epoch in range(5000):
+    for epoch in range(1000):
         if torch.cuda.is_available():
             x_data = Variable(x).cuda()
             y_data = Variable(y).cuda()
@@ -75,7 +78,7 @@ def train(x, y):
 
 
 num = 100
-xLen = 108
+xLen = 240
 xNeg = torch.zeros((num, xLen+1))
 for i in range(num):
     data = np.load("../dataset/train/negative/" + str(i) + "/audio.npy")
@@ -99,11 +102,13 @@ yPos = torch.ones(num, 1)
 x = torch.cat((xNeg, xPos), 0).type(torch.FloatTensor)
 y = torch.cat((yNeg, yPos), 0).type(torch.FloatTensor)
 
+scaler = preprocessing.StandardScaler().fit(x)
+xscaled = torch.from_numpy(scaler.transform(x)).float()
 
 kf = KFold(n_splits=5, shuffle=True)
-for train_index, test_index in kf.split(x):
+for train_index, test_index in kf.split(xscaled):
     # print("TRAIN:", train_index, "TEST:", test_index)
-    x_train, x_test = x[train_index], x[test_index]
+    x_train, x_test = xscaled[train_index], xscaled[test_index]
     y_train, y_test = y[train_index], y[test_index]
 
     train(x_train, y_train)
