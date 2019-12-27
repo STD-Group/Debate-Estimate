@@ -67,7 +67,7 @@ xTestScaled = scaler.transform(xTest)
 # xnormalized = normalizer.transform(x)
 
 
-times = 100
+times = 1
 nSplit = 5
 
 # solver = liblinear, newton-cg, lbfgs, sag, saga

@@ -1,97 +1,58 @@
 import numpy as np
-import matplotlib.pyplot as plt
-
-from sklearn import preprocessing
-from sklearn.model_selection import learning_curve
-
-from sklearn.model_selection import KFold
-# SVM
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import learning_curve
+import matplotlib.pyplot as plt
+import random
+from sklearn.model_selection import cross_val_score
 
-# sklearn官网说明地址：
-# https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html
 
-# audio.npy文件读取，结果为长度13的浮点list
-num = 100
-xLen = 240
+def SVM(x):
+    # 测试集的读取
+    n_mf = 20
+    n_k = 20
+    x = x.reshape(-1, 20)
+    xx = np.load("B_train_feat.npy")
+    xx = xx.reshape(4000,20)
+    yy = np.zeros(shape=200 * n_k)
+    yy[100 * n_k:] = np.ones(shape=100 * n_k)
 
-xNeg = np.zeros((num, xLen+1))
-for i in range(num):
-    data = np.load("../dataset/train/negative/" + str(i) + "/audio.npy")
-    for j in range(xLen):
-        xNeg[i][j] = data[j]
-    xNeg[i][xLen] = 1
+    # 将测试集的顺序随机打乱
+    ll = [i for i in range(0, 200 * n_k)]
+    random.shuffle(ll)
+    xx = xx[ll]
+    yy = yy[ll]
 
-xPos = np.zeros((num, xLen+1))
-for i in range(num):
-    data = np.load("../dataset/train/positive/" + str(i) + "/audio.npy")
-    for j in range(xLen):
-        xPos[i][j] = data[j]
-    xPos[i][xLen] = 1
+    # 高斯核SVM模型(目前效果比较好）
+    rbf_kernel_svm_clf = Pipeline((
+        ("scaler", StandardScaler()),
+        ("svm_clf", SVC(kernel="rbf", gamma=0.25, C=1))  # 0.24
+    ))
+    rbf_kernel_svm_clf.fit(xx, yy)
+    y= rbf_kernel_svm_clf.predict(x)
+    y = y.reshape(100, -1)
+    y = np.sum(y, axis=1)
+    test = np.zeros(100)
+    test[y > n_k / 2] = 1
+    return test
+    # 画学习曲线
+    # train_sizes, train_score, test_score = learning_curve(
+    #     rbf_kernel_svm_clf, xx, yy, cv=10, scoring='accuracy',
+    #     train_sizes=[0.1, 0.2, 0.4, 0.6, 0.8, 1]  # [0.1, 0.25, 0.5, 0.75, 1]
+    # )
+    # train_error = 1 - np.mean(train_score, axis=1)
+    # test_error = 1 - np.mean(test_score, axis=1)
+    # plt.plot(train_sizes, train_error, 'o-', color='r', label='training')
+    # plt.plot(train_sizes, test_error, 'o-', color='g', label='testing')
+    # plt.legend(loc='best')
+    # plt.xlabel('traing examples')
+    # plt.ylabel('error')
+    # plt.show()
 
-xTest = np.zeros((num, xLen+1))
-for i in range(num):
-    data = np.load("../dataset/test/" + str(i) + "/audio.npy")
-    for j in range(xLen):
-        xTest[i][j] = data[j]
-    xTest[i][xLen] = 1
 
-yNeg = np.zeros(num)
-yPos = np.ones(num)
-x = np.concatenate((xNeg, xPos), 0)
-y = np.concatenate((yNeg, yPos), 0)
-
-# 同序打乱
-state = np.random.get_state()
-np.random.shuffle(x)
-np.random.set_state(state)
-np.random.shuffle(y)
-
-xtmp = x[100: y.size]
-x = x[0: 99]
-ytmp = y[100: y.size]
-y = y[0: 99]
-
-# # PolynomialFeatures生成多项式特征
-# poly = PolynomialFeatures(degree=2, interaction_only=True)
-# xPoly = poly.fit_transform(x)
-
-# 标准化向量，按列处理
-scaler = preprocessing.StandardScaler().fit(x)
-xscaled = scaler.transform(x)
-scaler = preprocessing.StandardScaler().fit(xtmp)
-xTmpScaled = scaler.transform(xtmp)
-scaler = preprocessing.StandardScaler().fit(xTest)
-xTestScaled = scaler.transform(xTest)
-
-times = 10
-nSplit = 3
-
-# for t in range(times):
-#     state = np.random.get_state()
-#     np.random.shuffle(xscaled)
-#     np.random.set_state(state)
-#     np.random.shuffle(y)
-#     kf = KFold(n_splits=nSplit)
-#     for train_index, test_index in kf.split(xscaled):
-#         # print("TRAIN:", train_index, "TEST:", test_index)
-#         x_train, x_test = xscaled[train_index], xscaled[test_index]
-#         y_train, y_test = y[train_index], y[test_index]
-#
-#         clf = SVC(kernel='rbf', class_weight='balanced')
-#         clf.fit(x_train, y_train)
-#         yPred = clf.predict(x_train)
-#         acc = (yPred == y_train).sum() / y_train.size
-#         print('SVM train acc is {:.4f}'.format(acc))  # 精度
-#
-#         yPred = clf.predict(x_test)
-#         acc = (yPred == y_test).sum() / y_test.size
-#         print('SVM test acc is {:.4f}'.format(acc))  # 精度
-
-clf = SVC(kernel='rbf', class_weight='balanced')
-clf.fit(xscaled, y)
-yTmp = clf.predict(xTmpScaled)
-acc = (yTmp == ytmp).sum() / yTmp.size
-print('SVM test acc is {:.4f}'.format(acc))# 精度
-Ans = clf.predict(xTestScaled)
-np.save("TestAns/SVM.npy", Ans)
+# 读取特征
+xTest = np.load("B_feat.npy")
+yTest = SVM(xTest)
+np.save("TestAns/SVM.npy", yTest)
